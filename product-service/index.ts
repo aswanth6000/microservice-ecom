@@ -17,6 +17,8 @@ var channel: any, connection: amqp.Connection | null = null
 
 app.use(express.json())
 
+var order: any;
+
 async function connect() {
     const amqpServer = "amqp://localhost:5672";
     connection = await amqp.connect(amqpServer);
@@ -27,10 +29,20 @@ connect()
 
 // ROUTE TO BUY PRODUCT
 
-app.post("/product/buy", verifyToken, async(req: Request, res: Response)=>{
+app.post("/product/buy", verifyToken, async(req: any, res: Response)=>{
     const {ids} = req.body;
     const products = await Product.find({_id: {$in: ids}});
-    return res.json(products)
+    channel.sendToQueue(
+        "ORDER", 
+        Buffer.from(JSON.stringify({
+            products,
+            userEmail: req.user.email
+        }))
+    );
+    channel.consume("PRODUCT", (data: any)=>{
+       order = JSON.parse(data.content)
+    })
+    return res.json(order)
 })
 
 // ROUTE TO CREATE PRODUCT
