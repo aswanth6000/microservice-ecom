@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 const app = express()
 import mongoose from "mongoose";
 import amqp from 'amqplib'
-import { Order, OrderTypes } from "./Order";
+import { Order } from "./Order";
 
 mongoose.connect("mongodb://localhost/orderservice")
     .then(() => {
@@ -19,7 +19,7 @@ app.use(express.json())
 
 // CREATE ORDER FUNCTION
 
-async function createOrder(products: Array<any>, userEmail: string){
+function createOrder(products: Array<any>, userEmail: string){
     let total  = 0;
     for(let t = 0; t < products.length; ++t){
         total+= products[t].price;
@@ -29,7 +29,9 @@ async function createOrder(products: Array<any>, userEmail: string){
         user: userEmail,
         total_price: total
     })
-    await newOrder.save()
+     newOrder.save()
+    return newOrder
+    
 }
 
 async function connect (){
@@ -38,20 +40,20 @@ async function connect (){
     channel = await connection.createChannel()
     channel.assertQueue("ORDER")
 }
-connect().then(()=>{
-    channel.consume("ORDER", (data: any)=>{
+connect().then(async ()=>{
+    await channel.consume("ORDER", (data: any)=>{
         console.log("Consuming ORDER service");
         const {products, userEmail} = JSON.parse(data.content);
-        const newOrder =  createOrder(products, userEmail);
+        const newOrder = createOrder(products, userEmail);
         channel.ack(data);
+        console.log(newOrder);
+        
         channel.sendToQueue(
             "PRODUCT",
             Buffer.from(JSON.stringify({newOrder}))
         )
     })
 })
-
-
 
 app.listen('8002', () => {
     console.log("Server running on port 8002 ");

@@ -31,7 +31,7 @@ connect()
 
 app.post("/product/buy", verifyToken, async(req: any, res: Response)=>{
     const {ids} = req.body;
-    const products = await Product.find({_id: {$in: ids}});
+    const products = await Product.find({_id: {$in: ids}}); 
     channel.sendToQueue(
         "ORDER", 
         Buffer.from(JSON.stringify({
@@ -39,8 +39,9 @@ app.post("/product/buy", verifyToken, async(req: any, res: Response)=>{
             userEmail: req.user.email
         }))
     );
-    channel.consume("PRODUCT", (data: any)=>{
+    await channel.consume("PRODUCT", (data: any)=>{
        order = JSON.parse(data.content)
+       
     })
     return res.json(order)
 })
